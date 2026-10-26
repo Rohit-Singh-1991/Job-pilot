@@ -1,0 +1,39 @@
+name: InterviewMate job-discovery unit tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/jobs.js'
+      - 'scripts/job-discovery.cjs'
+      - 'tests/job-discovery.test.cjs'
+      - '.github/workflows/job-discovery-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/jobs.js'
+      - 'scripts/job-discovery.cjs'
+      - 'tests/job-discovery.test.cjs'
+      - '.github/workflows/job-discovery-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interviewmate-job-discovery-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test job-feed adapters and relevance filters
+        run: node --test tests/job-discovery.test.cjs

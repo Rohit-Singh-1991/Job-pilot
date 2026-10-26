@@ -64,6 +64,25 @@ function isLocationCompatible(value) {
   return true;
 }
 
+function isTrackRelevant(job, track) {
+  const title = String(job.title || "").toLowerCase();
+  const content = [title, job.description, job.location, job.level, job.company]
+    .filter(Boolean).join(" ").toLowerCase();
+  if (track === "javaAngular") {
+    return (/\bjava\b|spring boot|\bjvm\b/i.test(content)) && /\bangular\b/i.test(content);
+  }
+  if (track === "leadAngular") {
+    const hasAngular = /\bangular\b/i.test(content);
+    const fullStackWithoutLeadership = /full[ -]?stack/i.test(title) &&
+      !/lead|staff|principal|architect|manager/i.test(title);
+    const roleIsFrontendOrAngular = (!fullStackWithoutLeadership && /\bangular\b/i.test(title)) ||
+      /front[ -]?end|frontend|ui engineer|web engineer|software architect/i.test(title);
+    return hasAngular && roleIsFrontendOrAngular &&
+      !/\b(intern|internship|trainee|junior|entry[ -]?level|graduate role)\b/i.test(title);
+  }
+  return false;
+}
+
 function normalizeJob(job, track, now = Date.now()) {
   if (!job || typeof job !== "object") return null;
   let parsedUrl;
@@ -81,6 +100,7 @@ function normalizeJob(job, track, now = Date.now()) {
   const description = String(job.description || "").replace(/\s+/g, " ").slice(0, 700);
   const company = String(job.company || "Company not listed").slice(0, 140);
   const location = String(job.location || "Remote — verify eligibility").slice(0, 120);
+  if (!isTrackRelevant({ title, description, location, level: job.level, company }, track)) return null;
   const score = scoreJob({ title, description, location, level: job.level, company }, track);
   const minimumScore = 6;
   if (score < minimumScore || !isLocationCompatible(location)) return null;
@@ -201,4 +221,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { MAX_AGE_DAYS, TRACKS, isRecent, isLocationCompatible, scoreJob, normalizeJob, fetchTrack, discover };
+module.exports = { MAX_AGE_DAYS, TRACKS, isRecent, isLocationCompatible, scoreJob, isTrackRelevant, normalizeJob, fetchTrack, discover };

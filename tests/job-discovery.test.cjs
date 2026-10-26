@@ -174,3 +174,74 @@ test("Java + Angular full-stack role alone is not a lead-angular match", () => {
   }, "leadAngular", Date.parse("2026-10-16T00:00:00Z"));
   assert.equal(item, null);
 });
+
+
+test("discovery rejects unrelated roles even when a broad provider tag returns them", () => {
+  const now = Date.parse("2026-10-26T00:00:00Z");
+  assert.equal(normalizeJob({
+    id: "unrelated-presales",
+    title: "Presales Engineer (German Speaking)",
+    company: "Example Co",
+    location: "Remote",
+    description: "Technical sales, customer discovery and product demos.",
+    publishedAt: "2026-10-25T00:00:00Z",
+    url: "https://example.com/jobs/presales"
+  }, "javaAngular", now), null);
+  assert.equal(normalizeJob({
+    id: "unrelated-frontend",
+    title: "Principal Frontend Engineer",
+    company: "Example Co",
+    location: "Remote",
+    description: "Lead frontend architecture across React applications.",
+    publishedAt: "2026-10-25T00:00:00Z",
+    url: "https://example.com/jobs/frontend"
+  }, "leadAngular", now), null);
+});
+
+test("lead-angular discovery accepts frontend leadership only when Angular is explicit", () => {
+  const now = Date.parse("2026-10-26T00:00:00Z");
+  const match = normalizeJob({
+    id: "angular-architect",
+    title: "Principal Frontend Engineer",
+    company: "Example Co",
+    location: "Remote",
+    description: "Lead Angular and TypeScript architecture for enterprise products.",
+    publishedAt: "2026-10-25T00:00:00Z",
+    url: "https://example.com/jobs/angular-architect"
+  }, "leadAngular", now);
+  assert.ok(match);
+  assert.equal(match.track, "leadAngular");
+});
+
+
+test("public jobs API never returns a broad-tag listing unrelated to the selected track", async () => {
+  const originalFetch = global.fetch;
+  const unrelated = {
+    id: "wrong-tag-result",
+    jobTitle: "Presales Engineer (German Speaking)",
+    companyName: "Example Co",
+    jobGeo: "Remote",
+    jobDescription: "Technical sales and product demos.",
+    pubDate: "2026-10-25T00:00:00Z",
+    url: "https://jobicy.com/jobs/wrong-tag-result",
+    jobIndustry: ["Sales"]
+  };
+  global.fetch = async (url) => ({
+    ok: true,
+    status: 200,
+    json: async () => String(url).includes("remoteok.com") ? [] : { jobs: [unrelated] }
+  });
+  try {
+    const response = {
+      headers: {},
+      setHeader(name, value) { this.headers[name] = value; },
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; }
+    };
+    await require("../api/jobs.js")({ method: "GET", query: { track: "javaAngular" } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body.jobs, []);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
