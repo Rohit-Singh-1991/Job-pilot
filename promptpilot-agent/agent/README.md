@@ -1,6 +1,6 @@
 # PromptPilot Local Agent
 
-**Live dashboard:** https://promptpilot-jobpilot-newdivide4-8630.vercel.app
+**Live dashboard:** https://promptpilot-jobpilot.vercel.app
 
 The dashboard is deployed. If you are on mobile, you can review the interface, but installing the local runner, starting Ollama, opening Chromium, and connecting a tunnel still require your Windows/macOS/Linux computer. To set up from source, download the agent files from the [PromptPilot agent folder in GitHub](https://github.com/Rohit-Singh-1991/Job-pilot/tree/main/promptpilot-agent/agent), save them in one folder, inspect `install.ps1`, and run it from PowerShell.
 
