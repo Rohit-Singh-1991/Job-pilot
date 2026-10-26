@@ -211,6 +211,13 @@ module.exports = async function handler(req, res) {
   const jobs = Array.from(deduped.values()).sort((a, b) =>
     (Date.parse(b.publishedAt || "") || 0) - (Date.parse(a.publishedAt || "") || 0)
   );
+  // Defense in depth: re-check relevance after normalization/deduplication before exposing results.
+  // This also protects clients if a provider adapter changes its output shape later.
+  const verifiedJobs = jobs.filter(job => isRelevant({
+    title: job.title,
+    searchText: job.description,
+    industry: job.industry
+  }, track));
   const failures = results
     .filter(result => result.status === "rejected")
     .map(result => String(result.reason && result.reason.message || result.reason).slice(0, 240));
@@ -222,7 +229,7 @@ module.exports = async function handler(req, res) {
     retrievedAt: new Date().toISOString(),
     partial: successful.length !== requests.length,
     sourceWarnings: failures,
-    jobs: jobs.slice(0, 100),
+    jobs: verifiedJobs.slice(0, 100),
     note: "Recent remote listings from Jobicy and RemoteOK are scored for the selected technology track. Each source is credited, and original listing links are preserved. Listings with explicit non-India-only location restrictions are rejected; unspecified eligibility must be verified before applying. No applications are submitted."
   });
 };
