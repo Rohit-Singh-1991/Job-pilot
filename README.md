@@ -1,5 +1,7 @@
 # InterviewMate — AI Job Search Agent
 
+> **Repository consolidation (26 Oct 2026):** `Rohit-Singh-1991/Job-pilot` is the canonical repository. The tracked `main` trees of Job-Pilot and the former InterviewMate repository were identical; InterviewMate-specific discovery, tests, and persistence setup work has been consolidated here. Continue all code changes in Job-Pilot. The app currently implements job discovery, resume preparation, application tracking, and guided portal handoff; it is not yet an autonomous application submitter or a separate live interview-practice platform.
+
 InterviewMate is a Vercel-hosted Angular dashboard plus a GitHub Actions hourly job-discovery worker. **It is not yet a fully autonomous job-application agent.** Scheduled discovery is implemented; resume tailoring, recruiter outreach and live portal submission are not automated.
 
 ## Current dashboard features
