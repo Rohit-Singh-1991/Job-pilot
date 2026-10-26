@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$Base = "https://promptpilot-jobpilot.vercel.app/agent"
+$Base = "https://promptpilot-jobpilot-newdivide4-8630.vercel.app/agent"
 $Source = $PSScriptRoot
 $Folder = Join-Path $HOME "PromptPilotAgent"
 New-Item -ItemType Directory -Force -Path $Folder | Out-Null
