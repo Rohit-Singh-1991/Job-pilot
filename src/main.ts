@@ -47,7 +47,14 @@ GlobalWorkerOptions.workerSrc = new URL('assets/pdf.worker.min.mjs', document.ba
       <span class="save-msg">{{resumeStudioMessage}}</span>
       <p class="empty">Use one role track at a time for the first test. Paste a specific job description and verify the generated resume before applying. The recruiter email opens as a draft; attach the generated PDF manually before sending.</p>
     }
-    @else if(tab()==='Settings'){<h2>Local AI settings</h2><p class="empty">AI resume tailoring runs on your own computer through Ollama. Resume text is sent only to the local Ollama endpoint; no paid AI API is used. For the hosted page, allow this exact origin in Ollama's <code>OLLAMA_ORIGINS</code> environment variable and restart Ollama.</p><div class="form-grid"><label>Local Ollama URL<input [(ngModel)]="ollamaBaseUrl" placeholder="http://localhost:11434"></label><label>Model name<input [(ngModel)]="ollamaModel" placeholder="qwen2.5:3b"></label></div><button class="primary" (click)="checkLocalOllama()" [disabled]="aiBusy">{{aiBusy?'Checking…':'Check local Ollama'}}</button><span class="save-msg">{{ollamaStatus}}</span><p class="empty">On Windows, install Ollama, run <code>ollama pull qwen2.5:3b</code>, set <code>OLLAMA_ORIGINS=https://jobpilot-ai-topaz.vercel.app,https://interviewmate-three.vercel.app,https://parrotassist-newdivide4-8630.vercel.app,http://localhost:4200,http://127.0.0.1:4200</code>, fully quit Ollama from the tray and restart it. Keep Ollama bound to localhost; do not expose port 11434 to the internet.</p>}
+    @else if(tab()==='Settings'){
+    <h2>Secure cloud sync</h2>
+    <p class="empty">Sign in to Supabase before syncing. Cloud sync is opt-in: nothing uploads until you choose Upload, and Import merges cloud records into this browser instead of deleting local records. Profile and tracker records sync; master resume/photo files remain local in this version.</p>
+    <div class="form-grid"><label>Account email<input [(ngModel)]="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></label><label>Password<input [(ngModel)]="cloudPassword" type="password" autocomplete="current-password" placeholder="Supabase account password"></label></div>
+    <div class="actions"><button class="primary" (click)="signInCloud()" [disabled]="!cloudReady||cloudBusy">{{cloudBusy?'Working…':'Sign in'}}</button><button class="outline" (click)="signUpCloud()" [disabled]="!cloudReady||cloudBusy">Create account</button><button class="outline" (click)="signOutCloud()" [disabled]="!cloudSession||cloudBusy">Sign out</button></div>
+    <div class="actions"><button class="primary" (click)="syncCloudData()" [disabled]="!cloudSession||cloudBusy">Upload local profile and tracker</button><button class="outline" (click)="importCloudData()" [disabled]="!cloudSession||cloudBusy">Import cloud data into this browser</button></div>
+    <span class="save-msg">{{cloudStatus}}</span>
+    <h2>Local AI settings</h2><p class="empty">AI resume tailoring runs on your own computer through Ollama. Resume text is sent only to the local Ollama endpoint; no paid AI API is used. For the hosted page, allow this exact origin in Ollama's <code>OLLAMA_ORIGINS</code> environment variable and restart Ollama.</p><div class="form-grid"><label>Local Ollama URL<input [(ngModel)]="ollamaBaseUrl" placeholder="http://localhost:11434"></label><label>Model name<input [(ngModel)]="ollamaModel" placeholder="qwen2.5:3b"></label></div><button class="primary" (click)="checkLocalOllama()" [disabled]="aiBusy">{{aiBusy?'Checking…':'Check local Ollama'}}</button><span class="save-msg">{{ollamaStatus}}</span><p class="empty">On Windows, install Ollama, run <code>ollama pull qwen2.5:3b</code>, set <code>OLLAMA_ORIGINS=https://jobpilot-ai-topaz.vercel.app,https://interviewmate-three.vercel.app,https://parrotassist-newdivide4-8630.vercel.app,http://localhost:4200,http://127.0.0.1:4200</code>, fully quit Ollama from the tray and restart it. Keep Ollama bound to localhost; do not expose port 11434 to the internet.</p>}
     @else if(tab()==='Portal automation'){<div class="form-grid"><label>Portal priority<select [(ngModel)]="portalName" (ngModelChange)="portalMessage=portalName+' selected. The assistant will open the portal for you; it will not read passwords or bypass sign-in checks.'"><option>Naukri</option><option>LinkedIn</option><option>Indeed</option><option>InstaHyre</option></select></label><label>Target role<input [(ngModel)]="jobTitle" placeholder="Java + Angular Full Stack Developer"></label><label>Preferred location<input [(ngModel)]="profile.location" placeholder="Delhi NCR, India"></label><label>Company (optional)<input [(ngModel)]="portalCompany" placeholder="Company from the vacancy"></label><label class="wide">Exact job URL (optional)<input [(ngModel)]="portalJobUrl" type="url" placeholder="Paste a job link from the selected portal"></label></div><div class="notice"><b>Guided application mode</b><span>InterviewMate opens the selected portal and helps prepare a tailored resume. You remain in control of login, OTP/MFA, CAPTCHA, screening answers and the final Apply/Submit click. No portal credentials or cookies are collected.</span></div><div class="actions"><button class="primary" (click)="openPortalSearch()">Search {{portalName}} ↗</button><button class="outline" (click)="openPortalJob()">Open exact job URL ↗</button><button class="outline" (click)="preparePortalResume()">Prepare tailored resume</button><button class="outline" (click)="savePortalJob()">Save to application tracker</button></div><p class="save-msg">{{portalMessage}}</p><div class="panel"><h3>Queue and implementation status</h3><div class="connector"><b>1. Naukri</b><span class="pill">Active guided flow</span></div><p class="empty">Open the job, verify role/location/salary, then save it and prepare your role-specific resume. Direct form-fill automation is not enabled until the live form and portal permissions are validated.</p><div class="connector"><b>2. LinkedIn</b><span class="pill muted">Next</span></div><div class="connector"><b>3. Indeed</b><span class="pill muted">Queued</span></div><div class="connector"><b>4. InstaHyre</b><span class="pill muted">Queued</span></div></div>}
     @else {<div class="form-grid"><label>Career track<select [(ngModel)]="activeTrack" (ngModelChange)="saveTrack()"><option value="javaAngular">Java + Angular Full Stack Developer</option><option value="leadAngular">Lead Angular Developer</option></select></label><label>Search designation<input [(ngModel)]="jobTitle" (ngModelChange)="persistTrackDraft()" placeholder="Role to search"></label><label>Preferred location<input [(ngModel)]="profile.location" placeholder="Delhi NCR, India"></label><label>Work mode<input [(ngModel)]="profile.workMode" placeholder="Remote / Hybrid / On-site"></label></div><button class="primary" (click)="loadJobs()" [disabled]="jobSearchLoading">{{jobSearchLoading?'Finding remote jobs…':'Discover selected track'}}</button><button class="outline" (click)="loadBothJobs()" [disabled]="jobSearchLoading">Discover both tracks in parallel</button><button class="outline" (click)="openJobSearch('linkedin')">Search LinkedIn Jobs ↗</button><button class="outline" (click)="openJobSearch('indeed')">Search Indeed ↗</button><button class="outline" (click)="openJobSearch('naukri')">Search Naukri listings ↗</button><p class="empty">Live feed: recent remote listings from the <a href="https://jobicy.com/jobs-rss-feed" target="_blank" rel="noopener noreferrer">Jobicy feed</a> and <a href="https://remoteok.com/faq" target="_blank" rel="noopener noreferrer">Remote OK</a>. Each card credits its source and preserves the original posting link. Roles with explicit non-India-only location restrictions are filtered; when eligibility is not specified, verify it on the original post. Delhi-NCR / hybrid roles are also covered by LinkedIn, Indeed and Naukri search hand-offs. Discovery never submits applications.</p><span class="save-msg">{{jobSearchMessage}}</span><div class="job-results">@for (job of discoveredJobs; track job.id) {<article class="job-card"><div class="job-card-head"><div><b>{{job.title}}</b><p>{{job.company}} · {{job.location}}</p></div><span class="pill">{{job.score}}% keyword match</span></div><div class="job-card-meta"><span>{{job.level||'Level not specified'}}</span><span>{{job.type.join(' · ')||'Type not specified'}}</span><span>{{job.publishedAt?('Posted '+(job.publishedAt|date:'mediumDate')):'Posting date not provided'}}</span><span>Source: <a [href]="job.sourceUrl || job.url" target="_blank" rel="noopener noreferrer">{{job.source||'Original feed'}}</a></span></div><p class="job-card-description">{{job.description||'No description supplied by the public feed.'}}</p>@if(job.salary){<p class="job-card-salary">Salary reported: {{job.salary}}</p>}<p class="job-card-skills">Matching terms: {{job.matchedSkills.join(', ')||'No track-specific skills detected — review the role carefully.'}}</p><div class="tracker-actions"><a [href]="job.url" target="_blank" rel="noopener noreferrer">Open original listing ↗</a><button class="outline" (click)="tailorDiscoveredJob(job)">Tailor resume for this job</button><button class="outline" (click)="addDiscoveredJob(job)">Add to tracker</button></div></article>} @empty { @if(!jobSearchLoading && jobSearchMessage){<p class="empty">No listings to show. You can try the search-site links above.</p>} }</div>}
    </section>
@@ -57,11 +64,11 @@ GlobalWorkerOptions.workerSrc = new URL('assets/pdf.worker.min.mjs', document.ba
 })
 class AppComponent {
  portalName:'Naukri'|'LinkedIn'|'Indeed'|'InstaHyre'='Naukri'; portalJobUrl=''; portalCompany=''; portalMessage='Naukri is first in the queue. Search, review and save a vacancy before tailoring; final submission remains yours.';
- tab=signal('Overview'); ollamaBaseUrl='http://localhost:11434'; ollamaModel='qwen2.5:3b'; ollamaStatus='Not checked'; aiBusy=false; aiSummaryOverride=''; aiSkillsOverride:string[]=[]; resumeName=''; saveMessage=''; trackerMessage=''; applications:any[]=[]; drafts:Record<string,string>={}; jobSearchLoading=false; jobSearchMessage=''; discoveredJobs:any[]=[]; discoveredByTrack:{javaAngular:any[];leadAngular:any[]}={javaAngular:[],leadAngular:[]};
+ tab=signal('Overview'); cloudReady=false; cloudBusy=false; cloudEmail=''; cloudPassword=''; cloudStatus='Loading Supabase configuration…'; cloudSession:any=null; private cloudUrl=''; private cloudPublishableKey=''; ollamaBaseUrl='http://localhost:11434'; ollamaModel='qwen2.5:3b'; ollamaStatus='Not checked'; aiBusy=false; aiSummaryOverride=''; aiSkillsOverride:string[]=[]; resumeName=''; saveMessage=''; trackerMessage=''; applications:any[]=[]; drafts:Record<string,string>={}; jobSearchLoading=false; jobSearchMessage=''; discoveredJobs:any[]=[]; discoveredByTrack:{javaAngular:any[];leadAngular:any[]}={javaAngular:[],leadAngular:[]};
  activeTrack:'javaAngular'|'leadAngular'='javaAngular'; jobTitle='Java + Angular Full Stack Developer'; jobCompany=''; jobDescription=''; jobUrl=''; recruiterEmail=''; recruiterName=''; photoName=''; photoDataUrl=''; resumeStudioMessage=''; outreachMessage=''; masterResumeNames:{javaAngular:string;leadAngular:string}={javaAngular:'',leadAngular:''}; masterResumeText:{javaAngular:string;leadAngular:string}={javaAngular:'',leadAngular:''}; trackDrafts:{javaAngular:{jobTitle:string;jobCompany:string;jobDescription:string;jobUrl:string;recruiterEmail:string;recruiterName:string};leadAngular:{jobTitle:string;jobCompany:string;jobDescription:string;jobUrl:string;recruiterEmail:string;recruiterName:string}}={javaAngular:{jobTitle:'Java + Angular Full Stack Developer',jobCompany:'',jobDescription:'',jobUrl:'',recruiterEmail:'',recruiterName:''},leadAngular:{jobTitle:'Lead Angular Developer',jobCompany:'',jobDescription:'',jobUrl:'',recruiterEmail:'',recruiterName:''}};
  newApp={company:'',role:'',applicationDate:new Date().toISOString().slice(0,10),contact:'',contactStatus:'Not found',followUpDate:'',status:'Saved',url:''};
  profile={name:'Rohit Singh',email:'rohit.singh_devlead@yahoo.com',phone:'+91 9910474663',title:'IT Architect – Java / Technical Lead / Java Full-Stack Developer',experience:'9+ years',java:'7 years',angular:'Not specified in resume',notice:'Immediate joiner',location:'Delhi NCR, India',workMode:'Hybrid or Remote',currentCtc:'28 LPA',expectedCtc:'32 LPA',targetRoles:'IT Architect – Java; Technical Lead; Senior Java Developer; Java + Angular Full Stack Developer',skills:'Java 17, Spring Boot 3, Spring AI, Apache Kafka, REST APIs, Microservices, JPA, Hibernate, MySQL, Docker, Kubernetes, Azure, Angular 13–19, TypeScript, JavaScript, React, Bootstrap 5, PrimeNG, Angular Material, Cypress, Karma, Jasmine, Git, Maven, Gradle, Agile/Scrum'};
- constructor(private http:HttpClient){try{const saved=localStorage.getItem('jobpilot-profile');if(saved)this.profile={...this.profile,...JSON.parse(saved)};this.applications=JSON.parse(localStorage.getItem('jobpilot-applications')||'[]');this.activeTrack=(localStorage.getItem('jobpilot-active-track') as 'javaAngular'|'leadAngular')||'javaAngular';const trackSaved=localStorage.getItem('jobpilot-track-drafts');if(trackSaved)this.trackDrafts={...this.trackDrafts,...JSON.parse(trackSaved)};this.loadTrackDraft();const ollamaBase=localStorage.getItem('interviewmate-ollama-base-url');if(ollamaBase)this.ollamaBaseUrl=ollamaBase;const savedOllamaModel=localStorage.getItem('interviewmate-ollama-model');if(savedOllamaModel)this.ollamaModel=savedOllamaModel;}catch{} void this.restoreResume();void this.restorePhoto();void this.restoreMasterResumeNames();}
+ constructor(private http:HttpClient){try{const saved=localStorage.getItem('jobpilot-profile');if(saved)this.profile={...this.profile,...JSON.parse(saved)};this.applications=JSON.parse(localStorage.getItem('jobpilot-applications')||'[]');this.activeTrack=(localStorage.getItem('jobpilot-active-track') as 'javaAngular'|'leadAngular')||'javaAngular';const trackSaved=localStorage.getItem('jobpilot-track-drafts');if(trackSaved)this.trackDrafts={...this.trackDrafts,...JSON.parse(trackSaved)};this.loadTrackDraft();const ollamaBase=localStorage.getItem('interviewmate-ollama-base-url');if(ollamaBase)this.ollamaBaseUrl=ollamaBase;const savedOllamaModel=localStorage.getItem('interviewmate-ollama-model');if(savedOllamaModel)this.ollamaModel=savedOllamaModel;}catch{} void this.restoreResume();void this.restorePhoto();void this.restoreMasterResumeNames();void this.initCloud();}
  tabDescription(){return ({'Profile':'Your resume-derived details are prefilled. Review and edit them before using them for applications.','Applications':'Track applications, contacts, statuses and follow-up dates.','Recruiter outreach':'Find relevant professional contacts and prepare respectful, personalized drafts.','Resume studio':'Create truthful, job-specific resume versions from your master resume.','Settings':'Configure and diagnose the local AI agent.','Jobs':'Manage job titles, search preferences and permitted sources.','Portal automation':'Guided portal handoff in priority order: Naukri, LinkedIn, Indeed, then InstaHyre.'} as Record<string,string>)[this.tab()]||'Your workspace overview and next steps.'}
  async fileSelected(e:Event){const input=e.target as HTMLInputElement;const f=input.files?.[0];if(!f)return;if(f.size>10*1024*1024){this.saveMessage='Resume must be 10 MB or smaller.';input.value='';return;}const allowed=['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];if(!allowed.includes(f.type)&&! /\.(pdf|doc|docx)$/i.test(f.name)){this.saveMessage='Please choose a PDF or Word document.';return;}try{await this.storeResume(f);this.resumeName=f.name;this.saveMessage='Resume saved in this browser profile. It has not been uploaded to a remote server.';}catch{this.saveMessage='Browser storage failed. Keep the original resume and retry in a supported browser.';}}
  async storeResume(file:File){const db=await this.openResumeDb();await new Promise<void>((resolve,reject)=>{const tx=db.transaction('resume','readwrite');tx.objectStore('resume').put({file,name:file.name,type:file.type,savedAt:new Date().toISOString()},'master');tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});db.close();}
@@ -125,6 +132,132 @@ class AppComponent {
  preparePortalResume(){this.jobCompany=this.portalCompany.trim();if(this.portalJobUrl.trim())this.jobUrl=this.portalJobUrl.trim();this.jobDescription='';this.recruiterEmail='';this.recruiterName='';this.persistTrackDraft();this.resumeStudioMessage='Portal handoff prepared. Paste the current job description in Resume Studio; previous job text was cleared to avoid reusing a stale description. Verify every resume claim before use.';this.tab.set('Resume studio');}
  savePortalJob(){if(!this.portalJobUrl.trim()){this.portalMessage='Paste the exact job URL before saving; a search result alone is not tracked.';return;}let parsed:URL;try{parsed=new URL(this.portalJobUrl);}catch{this.portalMessage='Enter a valid HTTPS job URL.';return;}const host=parsed.hostname.toLowerCase();const allowed=this.portalName==='Naukri'?/(^|\.)naukri\.com$/.test(host):this.portalName==='LinkedIn'?/(^|\.)linkedin\.com$/.test(host):this.portalName==='Indeed'?/(^|\.)indeed\.com$/.test(host):/(^|\.)instahyre\.com$/.test(host);if(parsed.protocol!=='https:'||!allowed){this.portalMessage='Use a valid HTTPS URL from '+this.portalName+'.';return;}if(this.applications.some((item:any)=>String(item.url||'')===parsed.href)){this.portalMessage='This URL is already in your tracker.';this.tab.set('Applications');return;}const item={id:crypto.randomUUID(),company:this.portalCompany.trim()||'Company to verify',role:this.jobTitle.trim()||'Role to verify',applicationDate:'',contact:'',contactStatus:'Not found',followUpDate:'',status:'Saved',url:parsed.href,track:this.activeTrack,source:this.portalName};try{const next=[item,...this.applications];localStorage.setItem('jobpilot-applications',JSON.stringify(next));this.applications=next;this.portalMessage='Saved as Saved — not Applied. Open the original page and submit manually after reviewing all fields.';}catch{this.portalMessage='Could not save in browser storage. Free storage and retry.';}}
  openJobSearch(source='linkedin'){const role=this.jobTitle|| (this.activeTrack==='leadAngular'?'Lead Angular Developer':'Java Angular Full Stack Developer');const location=this.profile.location||'India';const q=role+' '+location;let url='';if(source==='indeed')url='https://www.indeed.com/jobs?q='+encodeURIComponent(role)+'&l='+encodeURIComponent(location);else if(source==='naukri')url='https://www.google.com/search?q='+encodeURIComponent('site:naukri.com '+q+' jobs');else url='https://www.linkedin.com/jobs/search/?keywords='+encodeURIComponent(role)+'&location='+encodeURIComponent(location);window.open(url,'_blank','noopener');}
+
+ 
+ async initCloud(){
+  try {
+   const response=await fetch('/api/config',{headers:{Accept:'application/json'}});
+   if(!response.ok) throw new Error('Config endpoint returned HTTP '+response.status);
+   const config=await response.json();
+   this.cloudUrl=String(config.supabaseUrl||'').replace(/\/$/,'');
+   this.cloudPublishableKey=String(config.supabasePublishableKey||'');
+   if(!this.cloudUrl||!this.cloudPublishableKey){this.cloudStatus='Supabase is not configured on this deployment; local-only mode remains active.';return;}
+   this.cloudReady=true;
+   const saved=localStorage.getItem('jobpilot-cloud-session');
+   if(saved){
+    try { this.cloudSession=JSON.parse(saved); }
+    catch { localStorage.removeItem('jobpilot-cloud-session'); this.cloudSession=null; }
+   }
+   if(this.cloudSession?.refresh_token){
+    if(!this.cloudSession.expires_at||this.cloudSession.expires_at<Date.now()+60000) await this.refreshCloudSession();
+    this.cloudEmail=this.cloudSession?.user?.email||this.cloudEmail;
+    this.cloudStatus=this.cloudSession?'Signed in as '+this.cloudEmail+'. Choose Upload or Import to sync.':'Session expired; please sign in again.';
+   } else this.cloudStatus='Supabase ready. Sign in to enable opt-in cloud sync.';
+  } catch(error:any){this.cloudStatus='Cloud setup could not be loaded: '+String(error?.message||error);}
+ }
+ private saveCloudSession(session:any){
+  this.cloudSession={...session,expires_at:Date.now()+Number(session.expires_in||3600)*1000};
+  localStorage.setItem('jobpilot-cloud-session',JSON.stringify(this.cloudSession));
+  this.cloudEmail=this.cloudSession.user?.email||this.cloudEmail;
+ }
+ private clearCloudSession(){this.cloudSession=null;localStorage.removeItem('jobpilot-cloud-session');}
+ private async cloudAuth(path:string,body:any){
+  const response=await fetch(this.cloudUrl+'/auth/v1/'+path,{method:'POST',headers:{apikey:this.cloudPublishableKey,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(String(payload.msg||payload.message||payload.error_description||payload.error||('Auth returned HTTP '+response.status)));
+  return payload;
+ }
+ private async refreshCloudSession(){
+  if(!this.cloudSession?.refresh_token) throw new Error('Please sign in again.');
+  try { const refreshed=await this.cloudAuth('token?grant_type=refresh_token',{refresh_token:this.cloudSession.refresh_token}); this.saveCloudSession(refreshed); return refreshed; }
+  catch(error){this.clearCloudSession();throw error;}
+ }
+ private async cloudRest(path:string,method='GET',body?:any){
+  if(!this.cloudSession?.access_token) throw new Error('Sign in before syncing.');
+  if(this.cloudSession.expires_at<Date.now()+60000) await this.refreshCloudSession();
+  const send=()=>fetch(this.cloudUrl+'/rest/v1/'+path,{method,headers:{apikey:this.cloudPublishableKey,Authorization:'Bearer '+this.cloudSession.access_token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  let response=await send();
+  if(response.status===401&&this.cloudSession?.refresh_token){await this.refreshCloudSession();response=await send();}
+  if(!response.ok){const detail=await response.text().catch(()=> '');throw new Error('Cloud request failed (HTTP '+response.status+')'+(detail?': '+detail.slice(0,220):''));}
+  if(response.status===204)return null;
+  const raw=await response.text();
+  return raw?JSON.parse(raw):null;
+ }
+ async signUpCloud(){
+  if(!this.cloudReady||this.cloudBusy)return;
+  if(!this.cloudEmail.trim()||this.cloudPassword.length<8){this.cloudStatus='Enter a valid email and a password of at least 8 characters.';return;}
+  this.cloudBusy=true;
+  try{
+   const data=await this.cloudAuth('signup?redirect_to='+encodeURIComponent(window.location.origin),{email:this.cloudEmail.trim(),password:this.cloudPassword});
+   if(data.access_token&&data.refresh_token){this.saveCloudSession(data);this.cloudStatus='Account created and signed in. Choose Upload or Import to sync.';}
+   else this.cloudStatus='Account created. Check your email to confirm it, then sign in here.';
+   this.cloudPassword='';
+  }catch(error:any){this.cloudStatus='Could not create account: '+String(error?.message||error);}
+  finally{this.cloudBusy=false;}
+ }
+ async signInCloud(){
+  if(!this.cloudReady||this.cloudBusy)return;
+  if(!this.cloudEmail.trim()||!this.cloudPassword){this.cloudStatus='Enter your account email and password.';return;}
+  this.cloudBusy=true;
+  try{const data=await this.cloudAuth('token?grant_type=password',{email:this.cloudEmail.trim(),password:this.cloudPassword});this.saveCloudSession(data);this.cloudPassword='';this.cloudStatus='Signed in as '+this.cloudEmail+'. Choose Upload or Import to sync.';}
+  catch(error:any){this.cloudStatus='Sign-in failed: '+String(error?.message||error);}
+  finally{this.cloudBusy=false;}
+ }
+ async signOutCloud(){
+  if(!this.cloudSession||this.cloudBusy)return;
+  this.cloudBusy=true;
+  try{await fetch(this.cloudUrl+'/auth/v1/logout',{method:'POST',headers:{apikey:this.cloudPublishableKey,Authorization:'Bearer '+this.cloudSession.access_token}});}
+  catch{}
+  finally{this.clearCloudSession();this.cloudStatus='Signed out. Local data remains on this browser.';this.cloudBusy=false;}
+ }
+ async syncCloudData(){
+  if(!this.cloudSession||this.cloudBusy)return;
+  this.cloudBusy=true;
+  try{
+   const userId=this.cloudSession.user.id;
+   await this.cloudRest('interviewmate_profiles?on_conflict=user_id','POST',{user_id:userId,full_name:String(this.profile.name||''),target_tracks:['javaAngular','leadAngular'],preferences:{profile:this.profile,trackDrafts:this.trackDrafts,activeTrack:this.activeTrack}});
+   const allowed=new Set(['saved','preparing','ready_to_submit','applied','interviewing','offer','rejected','withdrawn']);
+   const mapped=this.applications.map((app:any)=>{
+    let id=String(app.id||'');if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))id=crypto.randomUUID();
+    const originalStatus=String(app.status||'Saved').toLowerCase().replace(/[ -]/g,'_');
+    const statusMap:Record<string,string>={saved:'saved',reviewing:'preparing',preparing:'preparing',ready_to_submit:'ready_to_submit',applied:'applied',interview:'interviewing',interviewing:'interviewing',offer:'offer',rejected:'rejected',withdrawn:'withdrawn'};
+    const status=statusMap[originalStatus]||'saved';
+    const safeDate=(value:any)=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)?value:null;
+    let jobUrl='';try{const u=new URL(String(app.url||''));if(u.protocol==='http:'||u.protocol==='https:')jobUrl=u.href;}catch{}
+    return {id,user_id:userId,job_id:null,company:String(app.company||''),job_title:String(app.role||app.job_title||''),job_url:jobUrl,status,applied_at:safeDate(app.applicationDate),follow_up_at:safeDate(app.followUpDate),recruiter_email:String(app.contact||''),notes:'',metadata:{...app,id}};
+   });
+   if(mapped.length) await this.cloudRest('interviewmate_applications?on_conflict=id','POST',mapped);
+   this.cloudStatus='Uploaded profile and '+mapped.length+' tracker record(s) to Supabase. Resume files remain local; no employer or recruiter was contacted.';
+  }catch(error:any){this.cloudStatus='Cloud upload failed: '+String(error?.message||error);}
+  finally{this.cloudBusy=false;}
+ }
+ async importCloudData(){
+  if(!this.cloudSession||this.cloudBusy)return;
+  this.cloudBusy=true;
+  try{
+   const userId=this.cloudSession.user.id;
+   const profiles=await this.cloudRest('interviewmate_profiles?user_id=eq.'+encodeURIComponent(userId)+'&select=preferences,full_name&limit=1');
+   const savedProfile=Array.isArray(profiles)?profiles[0]:null;
+   if(savedProfile?.preferences?.profile)this.profile={...this.profile,...savedProfile.preferences.profile};
+   if(savedProfile?.preferences?.trackDrafts)this.trackDrafts={...this.trackDrafts,...savedProfile.preferences.trackDrafts};
+   if(savedProfile?.preferences?.activeTrack)this.activeTrack=savedProfile.preferences.activeTrack;
+   const rows=await this.cloudRest('interviewmate_applications?user_id=eq.'+encodeURIComponent(userId)+'&select=id,company,job_title,job_url,status,applied_at,follow_up_at,recruiter_email,metadata&order=created_at.desc');
+   const cloudApps=(Array.isArray(rows)?rows:[]).map((row:any)=>{
+    if(row.metadata&&typeof row.metadata==='object'&&Object.keys(row.metadata).length)return {...row.metadata,id:row.id};
+    return {id:row.id,company:row.company,role:row.job_title,url:row.job_url,status:row.status,applicationDate:row.applied_at,followUpDate:row.follow_up_at,contact:row.recruiter_email,track:'javaAngular'};
+   });
+   const merged=new Map<string,any>();
+   for(const app of this.applications)merged.set(String(app.id),app);
+   for(const app of cloudApps)merged.set(String(app.id),app);
+   this.applications=Array.from(merged.values());
+   localStorage.setItem('jobpilot-profile',JSON.stringify(this.profile));
+   localStorage.setItem('jobpilot-applications',JSON.stringify(this.applications));
+   localStorage.setItem('jobpilot-track-drafts',JSON.stringify(this.trackDrafts));
+   localStorage.setItem('jobpilot-active-track',this.activeTrack);
+   this.cloudStatus='Imported '+cloudApps.length+' cloud tracker record(s) and merged them with this browser. Local-only resume files were not changed.';
+  }catch(error:any){this.cloudStatus='Cloud import failed: '+String(error?.message||error);}
+  finally{this.cloudBusy=false;}
+ }
 
  saveProfile(){try{localStorage.setItem('jobpilot-profile',JSON.stringify(this.profile));this.saveMessage='Profile saved in this browser. Resume and profile are not synced to a server.';}catch{this.saveMessage='Could not save locally in this browser.';}}
 }

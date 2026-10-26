@@ -40,4 +40,4 @@ Configure these in GitHub repository **Settings → Secrets and variables → Ac
 
 After adding secrets, use **Actions → InterviewMate hourly job discovery → Run workflow**. Confirm the run succeeds, the inbox issue is updated, and a new-match notification is received when the run has at least one new eligible match. A zero-match run is valid and should not send an empty digest.
 
-The dashboard must remain on browser-local storage until the Auth and persistence integration above is implemented and covered by tests; schema provisioning alone is not a claim that data is already syncing.
+The Settings tab now contains opt-in Supabase email/password sign-in plus explicit Upload and Import actions for profile and tracker records. This change is under test and is not considered complete until the Playwright build passes and a test account verifies RLS-backed round trips. Resume/photo files remain in browser IndexedDB in this iteration; no files are uploaded automatically.
