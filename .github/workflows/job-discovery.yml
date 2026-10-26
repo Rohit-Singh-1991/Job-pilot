@@ -1,0 +1,229 @@
+name: InterviewMate hourly job discovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/job-discovery.yml'
+      - 'scripts/job-discovery.cjs'
+      - 'tests/job-discovery.test.cjs'
+      - 'api/jobs.js'
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: interviewmate-hourly-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out InterviewMate
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test discovery scoring and edge cases
+        run: node --test tests/job-discovery.test.cjs
+
+      - name: Fetch and rank current job listings
+        id: scan
+        env:
+          JOBPILOT_BASE_URL: https://jobpilot-ai-topaz.vercel.app
+        run: node scripts/job-discovery.cjs
+
+      - name: Save new matches to the persistent InterviewMate inbox
+        uses: actions/github-script@v7
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          JOBPILOT_NOTIFY_EMAIL: ${{ secrets.JOBPILOT_NOTIFY_EMAIL }}
+          JOBPILOT_FROM_EMAIL: ${{ secrets.JOBPILOT_FROM_EMAIL }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const scan = JSON.parse(fs.readFileSync('jobpilot-scan.json', 'utf8'));
+            const { owner, repo } = context.repo;
+            const title = 'InterviewMate AI — Automated Job Inbox & Scan State';
+            const markerRegex = /<!-- JOBPILOT_STATE_V1:([A-Za-z0-9+/=]*) -->/;
+            const allIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'all', per_page: 100
+            });
+            let issue = allIssues.filter(item => !item.pull_request && item.title === title).sort((a, b) => a.number - b.number)[0];
+
+            if (!issue) {
+              const created = await github.rest.issues.create({
+                owner, repo, title,
+                body: [
+                  'This is InterviewMate AI’s automated job inbox and duplicate-prevention state.',
+                  '',
+                  'The hourly worker posts new public job listings as comments below. It stores only public listing identifiers and timestamps in the hidden state marker; it does not store resumes, personal profile data, passwords or portal cookies.',
+                  '',
+                  'Listings come from the current InterviewMate remote-job feed. Check each original job post for location eligibility, hiring status, employer legitimacy and requirements. No applications are submitted by this worker.',
+                  '',
+                  '<!-- JOBPILOT_STATE_V1:eyJzZWVuIjp7fX0= -->'
+                ].join('\n')
+              });
+              issue = created.data;
+            }
+
+            if (issue.state === 'closed') {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'open' });
+              issue.state = 'open';
+            }
+
+            let state = { seen: {} };
+            const marker = String(issue.body || '').match(markerRegex);
+            if (marker && marker[1]) {
+              try {
+                state = JSON.parse(Buffer.from(marker[1], 'base64').toString('utf8'));
+                if (!state || typeof state.seen !== 'object' || Array.isArray(state.seen)) {
+                  throw new Error('state marker has an invalid structure');
+                }
+              } catch (error) {
+                throw new Error('Could not safely read deduplication state; no matches were marked seen. ' + error.message);
+              }
+            }
+
+            const nowMs = Date.now();
+            const keepAfter = nowMs - 30 * 24 * 60 * 60 * 1000;
+            const entries = Object.entries(state.seen || {})
+              .filter(([, at]) => Number.isFinite(Date.parse(at)) && Date.parse(at) >= keepAfter)
+              .sort((a, b) => Date.parse(b[1]) - Date.parse(a[1]))
+              .slice(0, 300);
+            state.seen = Object.fromEntries(entries);
+
+            const unseen = scan.jobs.filter(job => !state.seen[job.dedupeKey]);
+            const chosen = [];
+            for (const track of ['javaAngular', 'leadAngular']) {
+              chosen.push(...unseen
+                .filter(job => job.track === track)
+                .sort((a, b) => b.score - a.score ||
+                  (Date.parse(b.publishedAt || '') || 0) - (Date.parse(a.publishedAt || '') || 0))
+                .slice(0, 5));
+            }
+
+            for (const job of chosen) {
+              state.seen[job.dedupeKey] = new Date().toISOString();
+            }
+            state.seen = Object.fromEntries(
+              Object.entries(state.seen)
+                .sort((a, b) => Date.parse(b[1]) - Date.parse(a[1]))
+                .slice(0, 300)
+            );
+
+            const statusText = scan.trackStatus.map(item =>
+              item.track + ': ' + (item.error
+                ? 'feed error: ' + item.error
+                : (item.rawListings ?? item.count) + ' API listing(s), ' + item.count +
+                  ' accepted after fit/location checks, ' + (item.filteredOut || 0) + ' filtered' +
+                  (item.sources && item.sources.length ? '; sources: ' + item.sources.join(', ') : '') +
+                  (item.sourceWarnings && item.sourceWarnings.length ? '; source warning(s): ' + item.sourceWarnings.join('; ') : ''))
+            ).join(' | ');
+            const stateMarker = '<!-- JOBPILOT_STATE_V1:' +
+              Buffer.from(JSON.stringify(state), 'utf8').toString('base64') + ' -->';
+            const issueBody = [
+              'This is InterviewMate AI’s automated job inbox and duplicate-prevention state.',
+              '',
+              'The hourly worker posts new public job listings as comments below. It stores only public listing identifiers and timestamps in the hidden state marker; it does not store resumes, personal profile data, passwords or portal cookies.',
+              '',
+              'Listings come from the current InterviewMate remote-job feed. Check each original job post for location eligibility, hiring status, employer legitimacy and requirements. No applications are submitted by this worker.',
+              '',
+              '**Latest scan (UTC):** ' + scan.checkedAt,
+              '**Feed status:** ' + statusText,
+              '**New matches saved this run:** ' + chosen.length,
+              (scan.errors.length || (scan.sourceWarnings || []).length)
+                ? '**Feed warnings:** ' + [
+                    ...scan.errors.map(item => item.track + ': ' + item.error),
+                    ...(scan.sourceWarnings || []).map(item => item.track + ': ' + item.warning)
+                  ].join('; ')
+                : '',
+              '',
+              stateMarker
+            ].filter(Boolean).join('\n');
+            function safeMarkdown(value) {
+              return String(value || '').replace(/[\\`*_{}\[\]()<>#+.!|]/g, '\\$&');
+            }
+            if (chosen.length) {
+              const sections = chosen.map(job => {
+                const posted = job.publishedAt ? ' · Posted: ' + safeMarkdown(job.publishedAt.slice(0, 10)) : '';
+                const salary = job.salary ? ' · Salary: ' + safeMarkdown(job.salary) : '';
+                return [
+                  '### [' + safeMarkdown(job.title) + '](' + job.url + ')',
+                  '**Company:** ' + safeMarkdown(job.company),
+                  '**Track:** ' + safeMarkdown(job.trackLabel) + ' · **Match score:** ' + job.score + '/20',
+                  '**Location:** ' + safeMarkdown(job.location) + posted + salary,
+                  job.description ? '> ' + safeMarkdown(job.description.slice(0, 420)) : '',
+                  '**Source:** ' + safeMarkdown(job.source) + ' — verify eligibility and apply on the original employer/job-board page.'
+                ].filter(Boolean).join('\n\n');
+              });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: '## New job matches — ' + scan.checkedAt + '\n\n' +
+                  sections.join('\n\n---\n\n') +
+                  '\n\n_InterviewMate discovery only: no application or email was sent to an employer._'
+              });
+            }
+
+            // Save deduplication state only after the inbox comment (if any) has succeeded.
+            // This favors at-least-once delivery over silently losing a match on a transient API failure.
+            await github.rest.issues.update({
+              owner, repo, issue_number: issue.number, body: issueBody
+            });
+
+            core.setOutput('new_count', String(chosen.length));
+            core.setOutput('inbox_url', issue.html_url);
+            core.notice('Job inbox: ' + issue.html_url + '; new matches: ' + chosen.length);
+
+            const apiKey = process.env.RESEND_API_KEY;
+            const to = process.env.JOBPILOT_NOTIFY_EMAIL;
+            const from = process.env.JOBPILOT_FROM_EMAIL;
+            if (chosen.length && apiKey && to && from) {
+              const textBody = [
+                'InterviewMate AI found ' + chosen.length + ' new job match(es).',
+                '',
+                ...chosen.flatMap(job => [
+                  job.trackLabel + ' — ' + job.title,
+                  'Company: ' + job.company,
+                  'Location: ' + job.location,
+                  job.salary ? 'Salary: ' + job.salary : '',
+                  'Match score: ' + job.score,
+                  'Original posting: ' + job.url,
+                  ''
+                ].filter(Boolean)),
+                'No applications were submitted. Check each original job post before applying.',
+                'InterviewMate inbox: ' + issue.html_url
+              ].join('\n');
+              try {
+                const response = await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    Authorization: 'Bearer ' + apiKey,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    from, to: [to],
+                    subject: 'InterviewMate AI: ' + chosen.length + ' new job match(es)',
+                    text: textBody
+                  })
+                });
+                if (!response.ok) {
+                  core.warning('Email notification could not be sent (HTTP ' + response.status + '). Matches remain saved in the inbox.');
+                } else {
+                  core.notice('Email notification sent through Resend.');
+                }
+              } catch (error) {
+                core.warning('Email notification request failed; matches remain saved in the inbox. ' + error.message);
+              }
+            } else if (chosen.length) {
+              core.notice('Email notifications are not configured. Add RESEND_API_KEY, JOBPILOT_NOTIFY_EMAIL and JOBPILOT_FROM_EMAIL as GitHub Actions secrets to enable them.');
+            }

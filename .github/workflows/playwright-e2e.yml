@@ -1,0 +1,48 @@
+name: Playwright end-to-end checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOBPILOT_URL: https://jobpilot-ai-topaz.vercel.app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dashboard dependencies
+        run: npm install --no-package-lock
+      - name: Compile Angular dashboard
+        run: npm run build
+      - name: Report npm dependency vulnerabilities
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm audit --json > /tmp/jobpilot-npm-audit.json || true
+          node -e "const fs=require('fs');let a={};try{a=JSON.parse(fs.readFileSync('/tmp/jobpilot-npm-audit.json','utf8'))}catch(e){console.log('NPM_AUDIT_PARSE_ERROR '+e.message)};const v=a.vulnerabilities||{};const packages=Object.entries(v).map(([name,x])=>({name,severity:x.severity,range:x.range,fixAvailable:x.fixAvailable,advisories:(x.via||[]).filter(y=>typeof y==='object').map(y=>({title:y.title,severity:y.severity,url:y.url}))}));console.log('NPM_AUDIT_SUMMARY '+JSON.stringify({counts:a.metadata&&a.metadata.vulnerabilities,packages}));"
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test live APIs, UI, resume generation, email drafts and tracker
+        run: node tests/e2e/jobpilot.cjs
+      - name: Upload diagnostic screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobpilot-playwright-failure
+          path: /tmp/jobpilot-e2e-failure.png
+          if-no-files-found: ignore
+          retention-days: 3

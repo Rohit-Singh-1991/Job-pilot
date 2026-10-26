@@ -1,0 +1,15 @@
+target/
+dist/
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+resumes/
+private/
+browser-profile/
+playwright/.auth/
+storageState.json
+*.pem
+*.key
+.DS_Store

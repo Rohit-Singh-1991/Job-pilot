@@ -1,0 +1,1 @@
+{"framework":"angular","buildCommand":"npm run build","outputDirectory":"dist/jobpilot/browser","installCommand":"npm install"}

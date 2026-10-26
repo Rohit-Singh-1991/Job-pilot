@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: jobpilot
+      POSTGRES_USER: jobpilot
+      POSTGRES_PASSWORD: ${JOBPILOT_DB_PASSWORD:?Set JOBPILOT_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["jobpilot_pg:/var/lib/postgresql/data"]
+    profiles: ["database"]
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["127.0.0.1:11434:11434"]
+    volumes: ["ollama_data:/root/.ollama"]
+    profiles: ["ai"]
+volumes:
+  jobpilot_pg:
+  ollama_data:
