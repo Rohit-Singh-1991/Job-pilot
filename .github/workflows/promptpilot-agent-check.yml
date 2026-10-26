@@ -1,0 +1,48 @@
+name: PromptPilot local-agent sanity checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "promptpilot-agent/**"
+      - ".github/workflows/promptpilot-agent-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "promptpilot-agent/**"
+      - ".github/workflows/promptpilot-agent-check.yml"
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check agent syntax
+        run: node --check promptpilot-agent/agent/agent.mjs
+      - name: Validate package metadata
+        run: node -e "const p=require('./promptpilot-agent/agent/package.json'); if(p.engines.node !== '>=22') process.exit(1); console.log(p.name, p.version)"
+      - name: Install open-source dependencies
+        run: npm install --prefix promptpilot-agent/agent
+      - name: Install Chromium for smoke test
+        working-directory: promptpilot-agent/agent
+        run: npx playwright install chromium
+      - name: Exercise local agent API and browser flow with a mock Ollama server
+        working-directory: promptpilot-agent/agent
+        run: npm run test:smoke
+      - name: Verify dashboard and safety controls
+        run: |
+          node --input-type=module -e '
+          import fs from "node:fs";
+          const h=fs.readFileSync("promptpilot-agent/index.html","utf8");
+          const script=h.match(/<script>([\s\S]*?)<\/script>/);
+          if (!script) throw new Error("dashboard script is missing");
+          new Function(script[1]);
+          for (const s of ["prompt","agentUrl","agentToken","previewImage","allowPC","/api/run","/api/approve","/api/pc/click","/agent/agent.mjs"]) if (!h.includes(s)) throw new Error("missing UI element or route: "+s);
+          const a=fs.readFileSync("promptpilot-agent/agent/agent.mjs","utf8");
+          for (const s of ["crypto.timingSafeEqual","/api/run","/api/approve","/api/stop","/api/pc/authorize","Local/private network hosts are blocked","await dns.lookup(h,{all:true,verbatim:true})","const b=await parse(req)","OLLAMA_URL","otp|captcha|verification"]) if (!a.includes(s)) throw new Error("missing safety/runtime feature: "+s);
+          const installer=fs.readFileSync("promptpilot-agent/agent/install.ps1","utf8");
+          for (const s of ["$PSScriptRoot","Copy-Item","npm install","npx playwright install chromium","ollama pull qwen2.5:3b"]) if (!installer.includes(s)) throw new Error("missing installer step: "+s);
+          console.log("Dashboard routes, agent safety controls, and offline-capable installer present");
+          '
