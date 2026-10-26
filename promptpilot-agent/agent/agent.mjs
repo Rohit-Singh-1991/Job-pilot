@@ -6,7 +6,7 @@ import os from 'node:os';
 import net from 'node:net';
 import dns from 'node:dns/promises';
 const PORT=Number(process.env.PORT||3920),HOST='127.0.0.1',TOKEN_FILE=path.join(process.cwd(),'.promptpilot-token'),OLLAMA=(process.env.OLLAMA_URL||'http://127.0.0.1:11434').replace(/\/+$/,''),TEXT_MODEL=process.env.OLLAMA_MODEL||'qwen2.5:3b',VISION_MODEL=process.env.OLLAMA_VISION_MODEL||'llava:7b';
-const ORIGINS=new Set((process.env.PROMPTPILOT_ALLOWED_ORIGINS||'https://promptpilot-jobpilot-newdivide4-8630.vercel.app,http://localhost:5173').split(',').map(x=>x.trim()).filter(Boolean));
+const ORIGINS=new Set((process.env.PROMPTPILOT_ALLOWED_ORIGINS||'https://promptpilot-jobpilot.vercel.app,https://promptpilot-jobpilot-newdivide4-8630.vercel.app,http://localhost:5173').split(',').map(x=>x.trim()).filter(Boolean));
 const RISKY=/\b(submit|pay|payment|purchase|buy now|delete|remove|accept|consent|confirm|finalize|register now|apply now|send now|transfer|sign|authorize|approve|book now|otp|captcha|verification|two.factor|mfa)\b/i,SENSITIVE=/\b(password|passcode|otp|one.?time.?password|verification code|captcha|cvv|cvc|card number|bank account|pin code|security code|recovery code)\b/i;
 let browser,context,page,currentUrl='',currentMode='browser',busy=false,stopped=false,pcPermission=false,pending=null,lastSteps=[],lastResult=null,lastActivity=new Date().toISOString();
 function makeToken(){if(process.env.PROMPTPILOT_TOKEN)return process.env.PROMPTPILOT_TOKEN;try{const s=fs.readFileSync(TOKEN_FILE,'utf8').trim();if(s.length>=40)return s}catch{}const s=crypto.randomBytes(32).toString('hex');fs.writeFileSync(TOKEN_FILE,s+os.EOL,{mode:0o600});return s}
