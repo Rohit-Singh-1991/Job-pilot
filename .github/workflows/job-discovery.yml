@@ -39,7 +39,7 @@ jobs:
       - name: Fetch and rank current job listings
         id: scan
         env:
-          JOBPILOT_BASE_URL: https://jobpilot-ai-topaz.vercel.app
+          JOBPILOT_BASE_URL: https://job-pilot-newdivide4-8630.vercel.app
         run: node scripts/job-discovery.cjs
 
       - name: Save new matches to the persistent InterviewMate inbox
