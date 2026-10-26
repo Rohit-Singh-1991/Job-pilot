@@ -72,6 +72,7 @@ create table if not exists public.interviewmate_applications (
   recruiter_email text not null default '',
   notes text not null default '',
   confirmation_reference text not null default '',
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint interviewmate_applications_url_check check (job_url = '' or job_url ~ '^https?://')
