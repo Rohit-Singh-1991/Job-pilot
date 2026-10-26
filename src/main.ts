@@ -188,7 +188,7 @@ class AppComponent {
   if(!this.cloudEmail.trim()||this.cloudPassword.length<8){this.cloudStatus='Enter a valid email and a password of at least 8 characters.';return;}
   this.cloudBusy=true;
   try{
-   const data=await this.cloudAuth('signup',{email:this.cloudEmail.trim(),password:this.cloudPassword,options:{emailRedirectTo:window.location.origin}});
+   const data=await this.cloudAuth('signup?redirect_to='+encodeURIComponent(window.location.origin),{email:this.cloudEmail.trim(),password:this.cloudPassword});
    if(data.access_token&&data.refresh_token){this.saveCloudSession(data);this.cloudStatus='Account created and signed in. Choose Upload or Import to sync.';}
    else this.cloudStatus='Account created. Check your email to confirm it, then sign in here.';
    this.cloudPassword='';
