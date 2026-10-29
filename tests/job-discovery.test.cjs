@@ -115,6 +115,49 @@ test("RemoteOK adapter maps a job and attributes the original posting URL", () =
   assert.deepEqual(item.jobIndustry, ["java", "angular", "spring-boot"]);
 });
 
+
+test("public jobs API filters country-specific overseas locations but preserves worldwide roles", async () => {
+  const originalFetch = global.fetch;
+  const overseas = {
+    id: "us-only-location",
+    jobTitle: "Principal Angular Engineer",
+    companyName: "Example Co",
+    jobGeo: "USA",
+    jobDescription: "Lead Angular and TypeScript architecture.",
+    pubDate: "2026-10-28T00:00:00Z",
+    url: "https://jobicy.com/jobs/us-only-location",
+    jobIndustry: ["Software Engineering"]
+  };
+  const worldwide = {
+    id: "worldwide-location",
+    jobTitle: "Lead Angular Developer",
+    companyName: "Example Co",
+    jobGeo: "Worldwide",
+    jobDescription: "Lead Angular and TypeScript architecture.",
+    pubDate: "2026-10-28T00:00:00Z",
+    url: "https://jobicy.com/jobs/worldwide-location",
+    jobIndustry: ["Software Engineering"]
+  };
+  global.fetch = async (url) => ({
+    ok: true,
+    status: 200,
+    json: async () => String(url).includes("remoteok.com") ? [] : { jobs: [overseas, worldwide] }
+  });
+  try {
+    const response = {
+      headers: {},
+      setHeader(name, value) { this.headers[name] = value; },
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; }
+    };
+    await require("../api/jobs.js")({ method: "GET", query: { track: "leadAngular" } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body.jobs.map(job => job.id), ["worldwide-location"]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("RemoteOK adapter rejects explicit non-India-only locations", () => {
   assert.equal(mapRemoteOkJob({
     id: 1,
