@@ -269,11 +269,15 @@ test("public jobs API never returns a broad-tag listing unrelated to the selecte
     url: "https://jobicy.com/jobs/wrong-tag-result",
     jobIndustry: ["Sales"]
   };
-  global.fetch = async (url) => ({
-    ok: true,
-    status: 200,
-    json: async () => String(url).includes("remoteok.com") ? [] : { jobs: [unrelated] }
-  });
+  const requestedUrls = [];
+  global.fetch = async (url) => {
+    requestedUrls.push(String(url));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => String(url).includes("remoteok.com") ? [] : { jobs: [unrelated] }
+    };
+  };
   try {
     const response = {
       headers: {},
@@ -284,6 +288,8 @@ test("public jobs API never returns a broad-tag listing unrelated to the selecte
     await require("../api/jobs.js")({ method: "GET", query: { track: "javaAngular" } }, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body.jobs, []);
+    assert.ok(requestedUrls.some(url => url.startsWith("https://jobicy.com/api/jobs?count=50&tag=")));
+    assert.ok(requestedUrls.every(url => !url.startsWith("https://jobicy.com/api/v2/remote-jobs")));
   } finally {
     global.fetch = originalFetch;
   }
