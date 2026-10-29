@@ -104,8 +104,8 @@ function hasLocationOutsideIndia(value) {
   const location = String(value || "").trim();
   if (!location) return false;
   // Keep genuinely global/India/APAC roles and generic remote listings; reject explicit region/country-only locations.
-  if (/\\b(india|delhi|ncr|apac|asia|worldwide|global|anywhere|all countries|work from anywhere)\\b/i.test(location)) return false;
-  return /\\b(usa|u\\.s\\.a\\.|u\\.s\\.|united states|canada|uk|united kingdom|england|scotland|wales|europe|emea|poland|portugal|germany|france|spain|italy|netherlands|belgium|sweden|norway|finland|denmark|switzerland|austria|ireland|australia|new zealand|latin america|latam|middle east)\\b/i.test(location);
+  if (/\b(india|delhi|ncr|apac|asia|worldwide|global|anywhere|all countries|work from anywhere)\b/i.test(location)) return false;
+  return /\b(usa|u\.s\.a\.|u\.s\.|united states|canada|uk|united kingdom|england|scotland|wales|europe|emea|poland|portugal|germany|france|spain|italy|netherlands|belgium|sweden|norway|finland|denmark|switzerland|austria|ireland|australia|new zealand|latin america|latam|middle east)\b/i.test(location);
 }
 
 function mapRemoteOkJob(raw) {
