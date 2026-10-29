@@ -1,4 +1,4 @@
-const JOBICY_ENDPOINT = "https://jobicy.com/api/v2/remote-jobs";
+const JOBICY_ENDPOINT = "https://jobicy.com/api/jobs";
 const REMOTEOK_ENDPOINT = "https://remoteok.com/api";
 const TRACK_TAGS = {
   javaAngular: ["java", "angular", "spring boot"],
