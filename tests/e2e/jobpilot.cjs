@@ -89,7 +89,7 @@ async function apiChecks() {
     expect(res.status()===200,'API HTTP status '+track,res.status());
     expect(data && data.track===track,'API returns requested track '+track);
     expect(data && Array.isArray(data.jobs),'API job array '+track);
-    expect(data && Array.isArray(data.sources) && data.sources.length>0 && data.sources.every(source=>['Jobicy','RemoteOK'].includes(source)) && data.sources.every(source=>String(data.source||'').includes(source)) && Array.isArray(data.sourceWarnings),'API source provenance and warning transparency '+track);
+    expect(data && Array.isArray(data.sources) && data.sources.length>0 && data.sources.every(source=>['Jobicy','RemoteOK','Remotive'].includes(source)) && data.sources.every(source=>String(data.source||'').includes(source)) && Array.isArray(data.sourceWarnings),'API source provenance and warning transparency '+track);
     const invalid=(data.jobs||[]).find(j=>!j.title||!j.company||!/^https?:\/\//i.test(j.url||''));
     expect(!invalid,'API job fields and HTTP(S) URLs '+track, invalid?JSON.stringify(invalid):(data.jobs||[]).length+' listing(s)');
     const entryLevel=(data.jobs||[]).filter(job=>/\b(?:intern(?:ship)?|trainee|apprentice|graduate trainee|entry[- ]level|junior)\b/i.test(String(job.title||''))&&!/\b(?:senior|lead|principal|staff|architect|manager)\b/i.test(String(job.title||'')));
