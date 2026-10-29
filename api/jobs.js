@@ -1,6 +1,5 @@
 const JOBICY_ENDPOINT = "https://jobicy.com/api/v2/remote-jobs";
 const REMOTEOK_ENDPOINT = "https://remoteok.com/api";
-const REMOTIVE_ENDPOINT = "https://remotive.com/api/remote-jobs";
 const TRACK_TAGS = {
   javaAngular: ["java", "angular", "spring boot"],
   leadAngular: ["angular", "typescript", "frontend"]
@@ -109,51 +108,6 @@ function hasLocationOutsideIndia(value) {
   return /\b(usa|u\.s\.a\.|u\.s\.|united states|canada|uk|united kingdom|england|scotland|wales|europe|emea|poland|portugal|germany|france|spain|italy|netherlands|belgium|sweden|norway|finland|denmark|switzerland|austria|ireland|australia|new zealand|latin america|latam|middle east)\b/i.test(location);
 }
 
-function mapRemotiveJob(raw) {
-  if (!raw || typeof raw !== "object" || !raw.title || !raw.company_name) return null;
-  const title = textValue(raw.title, 250);
-  const description = cleanDescription(raw.description || "", 30000);
-  const locationText = textValue(raw.candidate_required_location, 160);
-  if (hasExplicitNonIndiaLocationRestriction({
-    title,
-    excerpt: textValue(description, 3000),
-    location: locationText
-  })) return null;
-
-  let target;
-  try { target = new URL(String(raw.url || "")); } catch { return null; }
-  if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) return null;
-  if (target.hostname !== "remotive.com" && !target.hostname.endsWith(".remotive.com")) return null;
-
-  const publishedAt = parseProviderTime(raw.publication_date);
-  const category = textValue(raw.category, 100);
-  return {
-    id: String(raw.id || target.href).slice(0, 160),
-    jobSlug: String(raw.id || target.href).slice(0, 160),
-    jobTitle: title,
-    companyName: textValue(raw.company_name, 250),
-    jobGeo: locationText || "Remote — eligibility not specified",
-    jobLevel: "",
-    jobType: textValue(raw.job_type, 60),
-    jobIndustry: category ? [category] : [],
-    jobDescription: description,
-    jobExcerpt: textValue(description, 1600),
-    pubDate: publishedAt ? new Date(publishedAt).toISOString() : "",
-    salary: textValue(raw.salary, 100),
-    url: target.href,
-    source: "Remotive",
-    sourceUrl: target.href
-  };
-}
-
-async function getRemotiveJobs(track) {
-  const search = track === "leadAngular" ? "angular typescript" : "java angular";
-  const params = new URLSearchParams({ search });
-  const data = await getJson(REMOTIVE_ENDPOINT + "?" + params.toString(), "Remotive");
-  if (!Array.isArray(data && data.jobs)) throw new Error("Remotive returned an invalid jobs payload");
-  return data.jobs.map(mapRemotiveJob).filter(Boolean);
-}
-
 function mapRemoteOkJob(raw) {
   if (!raw || typeof raw !== "object" || !raw.position || !raw.company) return null;
   const title = textValue(raw.position, 250);
@@ -239,15 +193,14 @@ module.exports = async function handler(req, res) {
   const tags = TRACK_TAGS[track];
   const requests = [
     ...tags.map(async tag => ({ source: "Jobicy", tag, jobs: await getJobicyTag(tag) })),
-    (async () => ({ source: "RemoteOK", tag: REMOTEOK_TRACK_TAGS[track].join(","), jobs: await getRemoteOkTags(track) }))(),
-    (async () => ({ source: "Remotive", tag: track, jobs: await getRemotiveJobs(track) }))()
+    (async () => ({ source: "RemoteOK", tag: REMOTEOK_TRACK_TAGS[track].join(","), jobs: await getRemoteOkTags(track) }))()
   ];
   const results = await Promise.allSettled(requests);
   const successful = results.filter(result => result.status === "fulfilled");
   if (!successful.length) {
     return res.status(502).json({
       error: "The configured public remote-job feeds are temporarily unavailable. Try again shortly.",
-      sources: ["Jobicy", "RemoteOK", "Remotive"]
+      sources: ["Jobicy", "RemoteOK"]
     });
   }
 
@@ -285,11 +238,10 @@ module.exports = async function handler(req, res) {
     partial: successful.length !== requests.length,
     sourceWarnings: failures,
     jobs: verifiedJobs.slice(0, 100),
-    note: "Recent remote listings from Jobicy, RemoteOK and Remotive are scored for the selected technology track. Each source is credited, and original listing links are preserved. Listings with explicit non-India location restrictions are rejected; generic remote listings still require eligibility verification on the original post. No applications are submitted."
+    note: "Recent remote listings from Jobicy and RemoteOK are scored for the selected technology track. Each source is credited, and original listing links are preserved. Listings with explicit non-India location restrictions are rejected; generic remote listings still require eligibility verification on the original post. No applications are submitted."
   });
 };
 
 module.exports.mapRemoteOkJob = mapRemoteOkJob;
-module.exports.mapRemotiveJob = mapRemotiveJob;
 module.exports.isRelevant = isRelevant;
 module.exports.isEntryLevelTitle = isEntryLevelTitle;
