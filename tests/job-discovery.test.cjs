@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { isRecent, scoreJob, normalizeJob, isLocationCompatible } = require("../scripts/job-discovery.cjs");
-const { mapRemoteOkJob, isRelevant } = require("../api/jobs.js");
+const { mapRemoteOkJob, mapRemotiveJob, isRelevant } = require("../api/jobs.js");
 
 test("Java + Angular full-stack role receives a strong track score", () => {
   const score = scoreJob({
@@ -156,6 +156,41 @@ test("public jobs API filters country-specific overseas locations but preserves 
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("Remotive adapter maps a valid remote listing and preserves original source attribution", () => {
+  const item = mapRemotiveJob({
+    id: 987,
+    title: "Senior Java Angular Engineer",
+    company_name: "Example Co",
+    candidate_required_location: "Worldwide",
+    job_type: "full_time",
+    category: "Software Development",
+    publication_date: "2026-10-28T12:00:00Z",
+    salary: "₹30L–₹40L",
+    description: "<p>Java, Spring Boot and Angular</p>",
+    url: "https://remotive.com/remote-jobs/software-dev/987"
+  });
+  assert.ok(item);
+  assert.equal(item.source, "Remotive");
+  assert.equal(item.sourceUrl, item.url);
+  assert.equal(item.jobTitle, "Senior Java Angular Engineer");
+  assert.equal(item.jobGeo, "Worldwide");
+  assert.equal(item.salary, "₹30L–₹40L");
+  assert.deepEqual(item.jobIndustry, ["Software Development"]);
+});
+
+test("Remotive adapter rejects overseas-only and unsafe listing URLs", () => {
+  const base = {
+    id: 988,
+    title: "Lead Angular Developer",
+    company_name: "Example Co",
+    description: "Angular and TypeScript",
+    url: "https://remotive.com/remote-jobs/988"
+  };
+  assert.equal(mapRemotiveJob({...base, candidate_required_location: "USA Only"}), null);
+  assert.equal(mapRemotiveJob({...base, url: "javascript:alert(1)", candidate_required_location: "Worldwide"}), null);
+  assert.equal(mapRemotiveJob({...base, url: "https://malicious.example/jobs/988", candidate_required_location: "Worldwide"}), null);
 });
 
 test("RemoteOK adapter rejects explicit non-India-only locations", () => {
