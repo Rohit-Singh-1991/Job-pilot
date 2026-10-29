@@ -100,6 +100,14 @@ function hasExplicitNonIndiaLocationRestriction(raw) {
   return phrases.some(pattern => pattern.test(text));
 }
 
+function hasLocationOutsideIndia(value) {
+  const location = String(value || "").trim();
+  if (!location) return false;
+  // Keep genuinely global/India/APAC roles and generic remote listings; reject explicit region/country-only locations.
+  if (/\\b(india|delhi|ncr|apac|asia|worldwide|global|anywhere|all countries|work from anywhere)\\b/i.test(location)) return false;
+  return /\\b(usa|u\\.s\\.a\\.|u\\.s\\.|united states|canada|uk|united kingdom|england|scotland|wales|europe|emea|poland|portugal|germany|france|spain|italy|netherlands|belgium|sweden|norway|finland|denmark|switzerland|austria|ireland|australia|new zealand|latin america|latam|middle east)\\b/i.test(location);
+}
+
 function mapRemoteOkJob(raw) {
   if (!raw || typeof raw !== "object" || !raw.position || !raw.company) return null;
   const title = textValue(raw.position, 250);
@@ -200,7 +208,7 @@ module.exports = async function handler(req, res) {
   for (const result of successful) {
     for (const raw of result.value.jobs) {
       const item = normalize(raw);
-      if (!item || !isRelevant(item, track)) continue;
+      if (!item || hasLocationOutsideIndia(item.location) || !isRelevant(item, track)) continue;
       const uniqueKey = item.source + ":" + item.id;
       if (!deduped.has(uniqueKey)) {
         const { searchText, ...publicItem } = item;
@@ -230,7 +238,7 @@ module.exports = async function handler(req, res) {
     partial: successful.length !== requests.length,
     sourceWarnings: failures,
     jobs: verifiedJobs.slice(0, 100),
-    note: "Recent remote listings from Jobicy and RemoteOK are scored for the selected technology track. Each source is credited, and original listing links are preserved. Listings with explicit non-India-only location restrictions are rejected; unspecified eligibility must be verified before applying. No applications are submitted."
+    note: "Recent remote listings from Jobicy and RemoteOK are scored for the selected technology track. Each source is credited, and original listing links are preserved. Listings with explicit non-India location restrictions are rejected; generic remote listings still require eligibility verification on the original post. No applications are submitted."
   });
 };
 
