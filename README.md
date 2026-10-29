@@ -30,7 +30,7 @@ The app opens an email draft but does **not** send email automatically or attach
 1. Install Ollama from https://ollama.com/download and run `ollama pull qwen2.5:3b`.
 2. In Windows user environment variables, set `OLLAMA_ORIGINS` to include every app origin you use. For the current deployments, a combined value is:
    ```text
-   https://jobpilot-ai-topaz.vercel.app,https://interviewmate-three.vercel.app,https://parrotassist-newdivide4-8630.vercel.app,http://localhost:4200,http://127.0.0.1:4200
+   https://jobpilot-ai-topaz.vercel.app,https://interviewmate-three.vercel.app,https://perry-parrot-newdivide4-8630.vercel.app,http://localhost:4200,http://127.0.0.1:4200
    ```
    Preserve any other origins you already need; do not replace them with just one app's URL.
 3. Fully quit Ollama from the system tray and restart it. In InterviewMate → Settings, click **Check local Ollama**. Chrome may also ask for local-network permission.
